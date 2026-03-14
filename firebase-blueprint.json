@@ -1,0 +1,151 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "coupleId": { "type": "string", "description": "ID of the couple this user belongs to" }
+      },
+      "required": ["uid", "displayName", "email"]
+    },
+    "Couple": {
+      "title": "Couple",
+      "description": "Represents a pair of users in a relationship",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "inviteCode": { "type": "string" }
+      },
+      "required": ["userIds", "createdAt"]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "A shared journal entry or message between the couple",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "mood": { "type": "string", "description": "Detected mood by SoulLink" },
+        "reflection": { "type": "string", "description": "SoulLink's empathetic reflection" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "authorId", "content", "createdAt"]
+    },
+    "Insight": {
+      "title": "Relationship Insight",
+      "description": "AI-generated insights based on journal history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "emotionalTemperature": { "type": "string" },
+        "heartbeat": { "type": "string", "description": "The Pulse: steady, racing, or quiet" },
+        "activitySuggestion": { "type": "string" },
+        "patterns": { "type": "array", "items": { "type": "string" } },
+        "reflection": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "emotionalTemperature", "heartbeat", "activitySuggestion", "patterns", "reflection", "createdAt"]
+    },
+    "Milestone": {
+      "title": "Milestone",
+      "description": "Key dates in the relationship",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "type": { "type": "string", "enum": ["anniversary", "first_date", "resolved_conflict", "other"] }
+      },
+      "required": ["coupleId", "title", "date", "type"]
+    },
+    "TimeCapsule": {
+      "title": "Time Capsule",
+      "description": "Future visions stored for later",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "openDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "authorId", "content", "openDate", "createdAt"]
+    },
+    "MemoryWallpaper": {
+      "title": "Memory Wallpaper",
+      "description": "AI generated wallpaper from a memory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "entryId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "prompt": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "entryId", "imageUrl", "createdAt"]
+    },
+    "DailyStory": {
+      "title": "Daily Story",
+      "description": "AI-generated daily visual story",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "prompt": { "type": "string" },
+        "reflection": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["coupleId", "imageUrl", "prompt", "reflection", "date", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/couples/{coupleId}": {
+      "schema": "Couple",
+      "description": "Couple relationships"
+    },
+    "/couples/{coupleId}/journal": {
+      "schema": "JournalEntry",
+      "description": "Journal entries for a couple"
+    },
+    "/couples/{coupleId}/insights": {
+      "schema": "Insight",
+      "description": "AI insights for a couple"
+    },
+    "/couples/{coupleId}/milestones": {
+      "schema": "Milestone",
+      "description": "Relationship milestones"
+    },
+    "/couples/{coupleId}/timecapsules": {
+      "schema": "TimeCapsule",
+      "description": "Future visions"
+    },
+    "/couples/{coupleId}/wallpapers": {
+      "schema": "MemoryWallpaper",
+      "description": "Generated wallpapers"
+    },
+    "/couples/{coupleId}/dailyStories": {
+      "schema": "DailyStory",
+      "description": "Daily visual stories"
+    }
+  }
+}

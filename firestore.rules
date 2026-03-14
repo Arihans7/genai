@@ -1,0 +1,208 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: userId (uid)
+// Fields:
+//   - uid: string (required)
+//   - displayName: string (required)
+//   - email: string (required)
+//   - photoURL: string (optional)
+//   - coupleId: string (optional)
+//
+// Collection: couples
+// Document ID: coupleId
+// Fields:
+//   - id: string (required)
+//   - userIds: list (required, size 2)
+//   - createdAt: timestamp (required)
+//   - inviteCode: string (required)
+//
+// Collection: couples/{coupleId}/journal
+// Document ID: entryId
+// Fields:
+//   - id: string (required)
+//   - coupleId: string (required)
+//   - authorId: string (required)
+//   - authorName: string (required)
+//   - content: string (required, max 2000 chars)
+//   - mood: string (optional)
+//   - reflection: string (optional)
+//   - createdAt: timestamp (required)
+//
+// Collection: couples/{coupleId}/insights
+// Document ID: insightId
+// Fields:
+//   - id: string (required)
+//   - coupleId: string (required)
+//   - emotionalTemperature: string (required)
+//   - patterns: list (required, size 3)
+//   - reflection: string (required)
+//   - createdAt: timestamp (required)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "arihanskhot7@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isCoupleMember(coupleId) {
+      return isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/couples/$(coupleId)).data.userIds;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'email', 'photoURL', 'coupleId']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidCouple(data) {
+      return hasOnlyAllowedFields(['id', 'userIds', 'createdAt', 'inviteCode', 'settings', 'featuredWallpaperId']) &&
+             data.userIds is list && data.userIds.size() <= 2 &&
+             data.createdAt is timestamp &&
+             data.inviteCode is string && data.inviteCode.size() > 0 &&
+             (!('settings' in data) || (data.settings is map && data.settings.keys().hasOnly(['coupleMode', 'persona']))) &&
+             (!('featuredWallpaperId' in data) || data.featuredWallpaperId is string);
+    }
+
+    function isValidJournalEntry(data) {
+      return hasOnlyAllowedFields(['id', 'coupleId', 'authorId', 'authorName', 'content', 'mood', 'reflection', 'audioData', 'conflictDetected', 'coolingPrompt', 'sentimentScore', 'suggestedImagePrompt', 'generatedImageUrl', 'createdAt']) &&
+             data.coupleId is string &&
+             data.authorId == request.auth.uid &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 2000 &&
+             data.createdAt is timestamp &&
+             (!('suggestedImagePrompt' in data) || data.suggestedImagePrompt == null || data.suggestedImagePrompt is string) &&
+             (!('generatedImageUrl' in data) || data.generatedImageUrl == null || data.generatedImageUrl is string);
+    }
+
+    function isValidInsight(data) {
+      return hasOnlyAllowedFields(['id', 'coupleId', 'emotionalTemperature', 'patterns', 'reflection', 'createdAt']) &&
+             data.coupleId is string &&
+             data.emotionalTemperature is string &&
+             data.patterns is list && data.patterns.size() == 3 &&
+             data.reflection is string &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidMilestone(data) {
+      return hasOnlyAllowedFields(['id', 'coupleId', 'title', 'date', 'type']) &&
+             data.coupleId is string &&
+             data.title is string && data.title.size() > 0 &&
+             data.date is string &&
+             data.type in ['anniversary', 'first_date', 'resolved_conflict', 'other'];
+    }
+
+    function isValidTimeCapsule(data) {
+      return hasOnlyAllowedFields(['id', 'coupleId', 'authorId', 'content', 'openDate', 'createdAt']) &&
+             data.coupleId is string &&
+             data.authorId == request.auth.uid &&
+             data.content is string && data.content.size() > 0 &&
+             data.openDate is timestamp &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidWallpaper(data) {
+      return hasOnlyAllowedFields(['id', 'coupleId', 'entryId', 'imageUrl', 'prompt', 'createdAt']) &&
+             data.coupleId is string &&
+             data.entryId is string &&
+             data.imageUrl is string &&
+             data.prompt is string &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidDailyStory(data) {
+      return hasOnlyAllowedFields(['id', 'coupleId', 'imageUrl', 'prompt', 'reflection', 'date', 'createdAt']) &&
+             data.coupleId is string &&
+             data.imageUrl is string &&
+             data.prompt is string &&
+             data.reflection is string &&
+             data.date is string &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /couples/{coupleId} {
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.userIds || isAdmin());
+      allow create: if isAuthenticated() && isValidCouple(request.resource.data) && request.auth.uid in request.resource.data.userIds;
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.userIds || isAdmin()) && isValidCouple(request.resource.data);
+    }
+
+    match /couples/{coupleId}/journal/{entryId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create: if isCoupleMember(coupleId) && isValidJournalEntry(request.resource.data);
+      allow update: if isCoupleMember(coupleId) && isValidJournalEntry(request.resource.data); // Allow updates for reflections
+      allow delete: if isCoupleMember(coupleId) && resource.data.authorId == request.auth.uid;
+    }
+
+    match /couples/{coupleId}/insights/{insightId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create: if isCoupleMember(coupleId) && isValidInsight(request.resource.data);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /couples/{coupleId}/milestones/{milestoneId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create, update: if isCoupleMember(coupleId) && isValidMilestone(request.resource.data);
+      allow delete: if isCoupleMember(coupleId);
+    }
+
+    match /couples/{coupleId}/timecapsules/{capsuleId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create: if isCoupleMember(coupleId) && isValidTimeCapsule(request.resource.data);
+      allow update: if false;
+      allow delete: if isCoupleMember(coupleId) && resource.data.authorId == request.auth.uid;
+    }
+
+    match /couples/{coupleId}/wallpapers/{wallpaperId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create: if isCoupleMember(coupleId) && isValidWallpaper(request.resource.data);
+      allow update: if false;
+      allow delete: if isCoupleMember(coupleId);
+    }
+
+    match /couples/{coupleId}/dailyStories/{storyId} {
+      allow read: if isCoupleMember(coupleId) || isAdmin();
+      allow create: if isCoupleMember(coupleId) && isValidDailyStory(request.resource.data);
+      allow update: if false;
+      allow delete: if isCoupleMember(coupleId);
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
